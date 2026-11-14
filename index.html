@@ -58,13 +58,9 @@
         ufficiale: 'https://script.google.com/macros/s/AKfycbzkmo8fEHRGoVzENrDERt8sOh39GKiXPylHhJl73-kLFqK2Myxu6RBACzmYieanEGPC/exec',
         prova: 'https://script.google.com/macros/s/AKfycbwmq5ErHhxHAE1tCZhmy0ojIbnKeuKFb9wsjbguS8WLtxc1nS05WSa-TnSO0_aHPjnA/exec'
       };
-      // La scelta si ricorda: l'icona sulla Home apre l'indirizzo di partenza (senza ?app=...), quindi chi ha scelto
-      // la prova con ?app=prova la ritrova anche dall'icona. Si torna all'ufficiale con ?app=ufficiale.
+      // Questa pagina apre il gestionale ufficiale (?app=prova solo per una prova al volo dal browser).
+      // Per la prova dalla schermata Home c'è la pagina a parte /prova/ (l'icona della Home parte sempre da lì).
       var scelta = new URLSearchParams(location.search).get('app');
-      try {
-        if (scelta === 'prova' || scelta === 'ufficiale') { localStorage.setItem('gestionale_app', scelta); }
-        else { scelta = localStorage.getItem('gestionale_app'); }
-      } catch (e) { /* niente */ }
       var quale = scelta === 'prova' ? 'prova' : 'ufficiale';
       if (quale === 'prova') { document.getElementById('etichettaProva').hidden = false; }
       var CHIAVE = 'gestionale_chiave_' + quale;
