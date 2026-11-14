@@ -28,6 +28,12 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
     #riserva[hidden] { display: none; }
+    #etichettaProva {
+      position: fixed; z-index: 3; top: calc(6px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+      padding: 2px 10px; border-radius: 999px; background: #B45309; color: #ffffff; pointer-events: none;
+      font: 700 11px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; letter-spacing: 0.06em;
+    }
+    #etichettaProva[hidden] { display: none; }
     #riserva img { width: 96px; height: 96px; border-radius: 22px; }
     #riserva a {
       display: inline-block; padding: 14px 24px; border-radius: 12px; background: #1E4E87; color: #ffffff;
@@ -36,6 +42,7 @@
   </style>
 </head>
 <body>
+  <div id="etichettaProva" hidden>PROVA</div>
   <div id="attesa"><img src="icona-192.png" alt=""><span>Apertura del gestionale…</span></div>
   <div id="riserva" hidden>
     <img src="icona-192.png" alt="">
@@ -51,7 +58,15 @@
         ufficiale: 'https://script.google.com/macros/s/AKfycbzkmo8fEHRGoVzENrDERt8sOh39GKiXPylHhJl73-kLFqK2Myxu6RBACzmYieanEGPC/exec',
         prova: 'https://script.google.com/macros/s/AKfycbwmq5ErHhxHAE1tCZhmy0ojIbnKeuKFb9wsjbguS8WLtxc1nS05WSa-TnSO0_aHPjnA/exec'
       };
-      var quale = new URLSearchParams(location.search).get('app') === 'prova' ? 'prova' : 'ufficiale';
+      // La scelta si ricorda: l'icona sulla Home apre l'indirizzo di partenza (senza ?app=...), quindi chi ha scelto
+      // la prova con ?app=prova la ritrova anche dall'icona. Si torna all'ufficiale con ?app=ufficiale.
+      var scelta = new URLSearchParams(location.search).get('app');
+      try {
+        if (scelta === 'prova' || scelta === 'ufficiale') { localStorage.setItem('gestionale_app', scelta); }
+        else { scelta = localStorage.getItem('gestionale_app'); }
+      } catch (e) { /* niente */ }
+      var quale = scelta === 'prova' ? 'prova' : 'ufficiale';
+      if (quale === 'prova') { document.getElementById('etichettaProva').hidden = false; }
       var CHIAVE = 'gestionale_chiave_' + quale;
       var cornice = document.getElementById('app');
       cornice.addEventListener('load', function () { document.getElementById('attesa').style.display = 'none'; });
