@@ -22,10 +22,26 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #1E4E87;
     }
     #attesa img { width: 96px; height: 96px; border-radius: 22px; }
+    #riserva {
+      position: fixed; inset: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 12px; padding: 24px; text-align: center; background: #F4F7FB; color: #1F2937;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    #riserva[hidden] { display: none; }
+    #riserva img { width: 96px; height: 96px; border-radius: 22px; }
+    #riserva a {
+      display: inline-block; padding: 14px 24px; border-radius: 12px; background: #1E4E87; color: #ffffff;
+      font-weight: 700; text-decoration: none;
+    }
   </style>
 </head>
 <body>
   <div id="attesa"><img src="icona-192.png" alt=""><span>Apertura del gestionale…</span></div>
+  <div id="riserva" hidden>
+    <img src="icona-192.png" alt="">
+    <p>Il gestionale non si è aperto qui dentro.</p>
+    <a id="apriDiretto" href="#">Apri il gestionale</a>
+  </div>
   <iframe id="app" title="Gestionale Graziani Catullo" allow="clipboard-write; fullscreen"></iframe>
   <noscript>Per usare il gestionale serve JavaScript.</noscript>
   <script>
@@ -40,6 +56,12 @@
       var cornice = document.getElementById('app');
       cornice.addEventListener('load', function () { document.getElementById('attesa').style.display = 'none'; });
       cornice.src = APP[quale];
+      // Riserva: se entro 12 secondi il gestionale non si fa sentire (versione che non si lascia incorniciare,
+      // rete lenta, telefono che blocca la cornice) si offre di aprirlo direttamente, invece di una pagina bianca.
+      var vivo = false;
+      document.getElementById('apriDiretto').href = APP[quale];
+      document.getElementById('apriDiretto').target = '_top';
+      setTimeout(function () { if (!vivo) { document.getElementById('riserva').hidden = false; } }, 12000);
 
       function leggi() { try { return localStorage.getItem(CHIAVE) || ''; } catch (e) { return ''; } }
       function scrivi(v) { try { if (v) { localStorage.setItem(CHIAVE, v); } else { localStorage.removeItem(CHIAVE); } } catch (e) { /* niente */ } }
@@ -60,6 +82,8 @@
       window.addEventListener('message', function (evento) {
         var d = evento.data;
         if (!d || typeof d !== 'object' || !dalNostroGestionale(evento)) { return; }
+        vivo = true; // il gestionale si è aperto qui dentro
+        document.getElementById('riserva').hidden = true;
         if (d.tipo === 'gestionale-chiedi-chiave') {
           evento.source.postMessage({ tipo: 'gestionale-chiave', chiave: leggi() }, evento.origin);
         } else if (d.tipo === 'gestionale-salva-chiave' && typeof d.chiave === 'string' && d.chiave.length >= 32 && d.chiave.length < 200) {
