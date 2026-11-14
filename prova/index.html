@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>PROVA - Graziani Catullo</title>
+  <!-- Pagina di avvio del gestionale: logo sulla schermata Home e accesso ricordato. Nessun dato qui. -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="PROVA Graziani">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#1E4E87">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="apple-touch-icon" href="../icona-180.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="../icona-192.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <style>
+    html, body { margin: 0; height: 100%; background: #F4F7FB; }
+    #app { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
+    #attesa {
+      position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #1E4E87;
+    }
+    #attesa img { width: 96px; height: 96px; border-radius: 22px; }
+    #riserva {
+      position: fixed; inset: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 12px; padding: 24px; text-align: center; background: #F4F7FB; color: #1F2937;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    #riserva[hidden] { display: none; }
+    #etichettaProva {
+      position: fixed; z-index: 3; top: calc(6px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+      padding: 2px 10px; border-radius: 999px; background: #B45309; color: #ffffff; pointer-events: none;
+      font: 700 11px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; letter-spacing: 0.06em;
+    }
+    #etichettaProva[hidden] { display: none; }
+    #riserva img { width: 96px; height: 96px; border-radius: 22px; }
+    #riserva a {
+      display: inline-block; padding: 14px 24px; border-radius: 12px; background: #1E4E87; color: #ffffff;
+      font-weight: 700; text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="etichettaProva" hidden>PROVA</div>
+  <div id="attesa"><img src="../icona-192.png" alt=""><span>Apertura del gestionale…</span></div>
+  <div id="riserva" hidden>
+    <img src="../icona-192.png" alt="">
+    <p>Il gestionale non si è aperto qui dentro.</p>
+    <a id="apriDiretto" href="#">Apri il gestionale</a>
+  </div>
+  <iframe id="app" title="Gestionale Graziani Catullo" allow="clipboard-write; fullscreen"></iframe>
+  <noscript>Per usare il gestionale serve JavaScript.</noscript>
+  <script>
+    (function () {
+      // Indirizzi del gestionale (le pagine di Google Apps Script). ?app=prova apre il link di prova.
+      var APP = {
+        ufficiale: 'https://script.google.com/macros/s/AKfycbzkmo8fEHRGoVzENrDERt8sOh39GKiXPylHhJl73-kLFqK2Myxu6RBACzmYieanEGPC/exec',
+        prova: 'https://script.google.com/macros/s/AKfycbwmq5ErHhxHAE1tCZhmy0ojIbnKeuKFb9wsjbguS8WLtxc1nS05WSa-TnSO0_aHPjnA/exec'
+      };
+      // Questa pagina apre il gestionale ufficiale (?app=prova solo per una prova al volo dal browser).
+      // Per la prova dalla schermata Home c'è la pagina a parte /prova/ (l'icona della Home parte sempre da lì).
+      var scelta = 'prova'; // questa è la pagina di avvio DI PROVA (cartella /prova/): apre sempre il link di prova
+      var quale = scelta === 'prova' ? 'prova' : 'ufficiale';
+      if (quale === 'prova') { document.getElementById('etichettaProva').hidden = false; }
+      var CHIAVE = 'gestionale_chiave_' + quale;
+      var cornice = document.getElementById('app');
+      cornice.addEventListener('load', function () { document.getElementById('attesa').style.display = 'none'; });
+      cornice.src = APP[quale];
+      // Riserva: se entro 12 secondi il gestionale non si fa sentire (versione che non si lascia incorniciare,
+      // rete lenta, telefono che blocca la cornice) si offre di aprirlo direttamente, invece di una pagina bianca.
+      var vivo = false;
+      document.getElementById('apriDiretto').href = APP[quale];
+      document.getElementById('apriDiretto').target = '_top';
+      setTimeout(function () { if (!vivo) { document.getElementById('riserva').hidden = false; } }, 12000);
+
+      function leggi() { try { return localStorage.getItem(CHIAVE) || ''; } catch (e) { return ''; } }
+      function scrivi(v) { try { if (v) { localStorage.setItem(CHIAVE, v); } else { localStorage.removeItem(CHIAVE); } } catch (e) { /* niente */ } }
+
+      // La chiave d'accesso si dà SOLO al gestionale aperto qui dentro: il messaggio deve arrivare da una cornice di
+      // Google Apps Script (…-script.googleusercontent.com) che sta DENTRO la nostra cornice.
+      function dalNostroGestionale(evento) {
+        if (!/^https:\/\/[a-z0-9-]+-script\.googleusercontent\.com$/.test(evento.origin)) { return false; }
+        var w = evento.source;
+        for (var i = 0; w && i < 10; i++) {
+          if (w === cornice.contentWindow) { return true; }
+          if (w === w.parent) { return false; }
+          w = w.parent;
+        }
+        return false;
+      }
+
+      window.addEventListener('message', function (evento) {
+        var d = evento.data;
+        if (!d || typeof d !== 'object' || !dalNostroGestionale(evento)) { return; }
+        vivo = true; // il gestionale si è aperto qui dentro
+        document.getElementById('riserva').hidden = true;
+        if (d.tipo === 'gestionale-chiedi-chiave') {
+          evento.source.postMessage({ tipo: 'gestionale-chiave', chiave: leggi() }, evento.origin);
+        } else if (d.tipo === 'gestionale-salva-chiave' && typeof d.chiave === 'string' && d.chiave.length >= 32 && d.chiave.length < 200) {
+          scrivi(d.chiave);
+        } else if (d.tipo === 'gestionale-cancella-chiave') {
+          scrivi('');
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
