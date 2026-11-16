@@ -35,6 +35,21 @@
     }
     #etichettaProva[hidden] { display: none; }
     #riserva img { width: 96px; height: 96px; border-radius: 22px; }
+    /* Notifiche: proposta in alto, una volta (si può rimandare di 7 giorni) */
+    #proposta {
+      position: fixed; z-index: 4; left: 12px; right: 12px; top: calc(12px + env(safe-area-inset-top));
+      max-width: 460px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; padding: 14px 16px;
+      border-radius: 16px; background: #ffffff; color: #1F2937; box-shadow: 0 12px 40px rgba(16, 24, 40, 0.22);
+      font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    #proposta[hidden] { display: none; }
+    #proposta p { flex: 1 1 220px; margin: 0; }
+    #proposta button {
+      min-height: 44px; padding: 0 16px; border-radius: 12px; font: 600 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      cursor: pointer;
+    }
+    #attivaNotifiche { border: 1px solid #1E4E87; background: #1E4E87; color: #ffffff; }
+    #nonOraNotifiche { border: 1px solid #1E4E87; background: #ffffff; color: #1E4E87; }
     #riserva a {
       display: inline-block; padding: 14px 24px; border-radius: 12px; background: #1E4E87; color: #ffffff;
       font-weight: 700; text-decoration: none;
@@ -48,6 +63,11 @@
     <img src="icona-192.png" alt="">
     <p>Il gestionale non si è aperto qui dentro.</p>
     <a id="apriDiretto" href="#">Apri il gestionale</a>
+  </div>
+  <div id="proposta" role="dialog" aria-label="Notifiche" hidden>
+    <p>🔔 Vuoi ricevere su questo telefono gli avvisi del gestionale (usati da ritirare, impegni…)?</p>
+    <button type="button" id="attivaNotifiche">Attiva</button>
+    <button type="button" id="nonOraNotifiche">Non ora</button>
   </div>
   <iframe id="app" title="Gestionale Graziani Catullo" allow="clipboard-write; fullscreen"></iframe>
   <noscript>Per usare il gestionale serve JavaScript.</noscript>
@@ -101,8 +121,87 @@
           scrivi(d.chiave);
         } else if (d.tipo === 'gestionale-cancella-chiave') {
           scrivi('');
+        } else if (d.tipo === 'gestionale-notifiche-pronte') {
+          // il gestionale è aperto e qualcuno ha fatto l'accesso: ora si può parlargli
+          gestionale = { finestra: evento.source, origine: evento.origin };
+          if (vaiDaNotifica) { manda({ tipo: 'gestionale-vai', vai: vaiDaNotifica }); vaiDaNotifica = null; }
+          avviaNotifiche();
         }
       });
+
+      // ---------- Notifiche sul telefono (Firebase Cloud Messaging) ----------
+      // Configurazione PUBBLICA del progetto Firebase (non segreta: serve a iscrivere il telefono). La spedizione la fa
+      // il gestionale con una chiave che sta solo nelle sue impostazioni. Nessun dato del gestionale passa di qui.
+      var FIREBASE = {"apiKey": "AIzaSyCiazoTHLZVFXhibzx-_Ic79L_7QELs7V8", "authDomain": "gestionale-graziani-catullo.firebaseapp.com", "projectId": "gestionale-graziani-catullo", "storageBucket": "gestionale-graziani-catullo.firebasestorage.app", "messagingSenderId": "1019195034915", "appId": "1:1019195034915:web:5fe174a4fd541cefc09096"};
+      var CHIAVE_WEB_PUSH = 'BCmKI4iux6BebI1TpI1upfUZlCRGj2nJPTbO4HACPWMYCs6JHea25WqcQ6l-bsBJVFL3TB5ggiL29qX_HmabMD0';
+      var SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
+      var RIMANDA = 'gestionale_notifiche_rimandate';
+      var gestionale = null;
+      // Toccando una notifica si arriva qui con ?vai=["veicolo",{"id":"V-00012"}]: si passa al gestionale dopo l'accesso
+      var vaiDaNotifica = null;
+      try {
+        var vai = new URLSearchParams(location.search).get('vai');
+        if (vai) {
+          vaiDaNotifica = JSON.parse(vai);
+          history.replaceState(null, '', location.pathname); // ricaricando non si riapre
+        }
+      } catch (e) { vaiDaNotifica = null; }
+
+      function manda(messaggio) {
+        if (gestionale) { try { gestionale.finestra.postMessage(messaggio, gestionale.origine); } catch (e) { /* niente */ } }
+      }
+      function supportate() {
+        return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+      }
+      function rimandate() {
+        try { return Date.now() - Number(localStorage.getItem(RIMANDA) || 0) < 7 * 86400000; } catch (e) { return false; }
+      }
+      function avviaNotifiche() {
+        if (!supportate()) { return; } // iPhone: solo aprendo dall'icona sulla Home (iOS 16.4 o più recente)
+        if (Notification.permission === 'granted') { prendiCodice(); return; }
+        if (Notification.permission === 'default' && !rimandate()) { document.getElementById('proposta').hidden = false; }
+      }
+      document.getElementById('attivaNotifiche').addEventListener('click', function () {
+        document.getElementById('proposta').hidden = true;
+        Notification.requestPermission().then(function (permesso) { if (permesso === 'granted') { prendiCodice(); } });
+      });
+      document.getElementById('nonOraNotifiche').addEventListener('click', function () {
+        document.getElementById('proposta').hidden = true;
+        try { localStorage.setItem(RIMANDA, String(Date.now())); } catch (e) { /* niente */ }
+      });
+
+      function caricaScript(src) {
+        return new Promise(function (fatto, errore) {
+          var s = document.createElement('script');
+          s.src = src; s.onload = fatto; s.onerror = errore;
+          document.head.appendChild(s);
+        });
+      }
+      function descrizione() {
+        var ua = navigator.userAgent;
+        var cosa = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android' :
+          /Macintosh/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : 'Dispositivo';
+        var standalone = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
+        return cosa + (standalone ? ' (app sulla Home)' : ' (browser)');
+      }
+      var codicePreso = null;
+      function prendiCodice() {
+        if (codicePreso) { codicePreso.then(passaCodice); return; }
+        codicePreso = caricaScript(SDK + 'firebase-app-compat.js')
+          .then(function () { return caricaScript(SDK + 'firebase-messaging-compat.js'); })
+          .then(function () { return navigator.serviceWorker.register('/firebase-messaging-sw.js'); })
+          .then(function (registrazione) {
+            if (!firebase.apps.length) { firebase.initializeApp(FIREBASE); }
+            var messaggi = firebase.messaging();
+            // app aperta: niente avviso del telefono, ma la campanella si aggiorna subito
+            messaggi.onMessage(function () { manda({ tipo: 'gestionale-aggiorna-campanella' }); });
+            return messaggi.getToken({ vapidKey: CHIAVE_WEB_PUSH, serviceWorkerRegistration: registrazione });
+          });
+        codicePreso.then(passaCodice).catch(function (e) { codicePreso = null; console.error('Notifiche: ' + e); });
+      }
+      function passaCodice(codice) {
+        if (codice) { manda({ tipo: 'gestionale-dispositivo', codice: codice, dispositivo: descrizione(), pagina: location.origin + location.pathname }); }
+      }
     })();
   </script>
 </body>
