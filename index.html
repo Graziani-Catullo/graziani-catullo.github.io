@@ -124,7 +124,7 @@
         } else if (d.tipo === 'gestionale-notifiche-pronte') {
           // il gestionale è aperto e qualcuno ha fatto l'accesso: ora si può parlargli
           gestionale = { finestra: evento.source, origine: evento.origin };
-          if (vaiDaNotifica) { manda({ tipo: 'gestionale-vai', vai: vaiDaNotifica }); vaiDaNotifica = null; }
+          if (vaiDaNotifica) { manda({ tipo: 'gestionale-vai', vai: vaiDaNotifica, voce: voceDaNotifica }); vaiDaNotifica = null; }
           avviaNotifiche();
         }
       });
@@ -138,9 +138,10 @@
       var RIMANDA = 'gestionale_notifiche_rimandate';
       var gestionale = null;
       // Toccando una notifica si arriva qui con ?vai=["veicolo",{"id":"V-00012"}]: si passa al gestionale dopo l'accesso
-      var vaiDaNotifica = null;
+      var vaiDaNotifica = null, voceDaNotifica = '';
       try {
         var vai = new URLSearchParams(location.search).get('vai');
+        voceDaNotifica = new URLSearchParams(location.search).get('voce') || ''; // diventa letta anche nella campanella
         if (vai) {
           vaiDaNotifica = JSON.parse(vai);
           history.replaceState(null, '', location.pathname); // ricaricando non si riapre
